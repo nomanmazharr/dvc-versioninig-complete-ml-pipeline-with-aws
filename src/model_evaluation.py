@@ -5,6 +5,8 @@ import pickle
 import json
 from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_auc_score
 import logging
+from dvclive import Live
+import yaml
 
 # Ensure the "logs" directory exists
 log_dir = 'logs'
@@ -28,6 +30,22 @@ file_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
 logger.addHandler(file_handler)
 
+def load_params(params_file: str):
+    """Loads the parameter from yaml file"""
+    try:
+        with open(params_file, 'r') as f:
+            params = yaml.safe_load(f)
+        logger.debug(f'Parameters retrieved from {params_file}')
+        return params
+    except FileNotFoundError:
+        logger.error(f'File not found {params_file}')
+        raise
+    except yaml.YAMLError as e:
+        logger.error(f'Yaml Error {e}')
+        raise
+    except Exception as e:
+        logger.error(f'Unexpected Error {e}')
+        raise
 
 def load_model(file_path: str):
     """Load the trained model from a file."""
@@ -94,6 +112,7 @@ def save_metrics(metrics: dict, file_path: str) -> None:
 
 def main():
     try:
+        params = load_params('params.yaml')
         clf = load_model('./models/model.pkl')
         test_data = load_data('./data/processed/test_tfidf.csv')
         
@@ -101,6 +120,12 @@ def main():
         y_test = test_data.iloc[:, -1].values
 
         metrics = evaluate_model(clf, X_test, y_test)
+
+        with Live(save_dvc_exp=True) as live:
+            for metric_name, value in metrics.items():
+                live.log_metric(metric_name, value)
+            
+            live.log_params(params)
         
         save_metrics(metrics, 'reports/metrics.json')
     except Exception as e:

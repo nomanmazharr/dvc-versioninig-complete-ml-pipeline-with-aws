@@ -1,0 +1,4 @@
+[core]
+    remote = emailspam
+['remote "emailspam"']
+    url = s3://email-spam-bucket
